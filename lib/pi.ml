@@ -49,5 +49,5 @@ struct
     let body = Quote.Eval.elim_clo body x Quote.Eval.eval |> fun tm -> Quote.quote ~tp ~tm in
     Pi.Syn.lam body
 
-  let quote_neu (tm,tp) f = Pi.Syn.app f @@ Quote.quote ~tp ~tm
+  let quote_app (tm,tp) f = Pi.Syn.app f @@ Quote.quote ~tp ~tm
 end

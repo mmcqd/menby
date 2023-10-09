@@ -192,7 +192,7 @@ struct
     | Dom.Lvl l -> Syn.Idx (Eff.read() - l - 1)
 
   and quote_elim hd = function
-    | Dom.App {tm; tp} -> PiQuote.quote_neu (tm,tp) hd
+    | Dom.App {tm; tp} -> PiQuote.quote_app (tm,tp) hd
     | Dom.Fst -> SigmaQuote.quote_fst hd
     | Dom.Snd -> SigmaQuote.quote_snd hd
     | Dom.Proj lbl -> RecordQuote.quote_proj lbl hd
