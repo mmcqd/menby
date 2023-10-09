@@ -36,7 +36,7 @@ struct
       | `Pair (_,y) -> y
       | `Neu (n, `Sg (_,fam)) -> 
         let x = eval_fst (U.Dom.embed n) in
-        let tp = Eval.elim_clo fam x Eval.eval in
+        let tp = Eval.elim_clo fam [x] Eval.eval in
         U.Dom.embed @@ Sigma.Dom.snd ~tp n
 end
 
@@ -45,12 +45,12 @@ struct
   module U = Sigma.U
 
   let quote_sg base fam =
-    let fam = Quote.bind base @@ fun x -> Quote.quote_tp @@ Quote.Eval.elim_clo fam x Quote.Eval.eval in
+    let fam = Quote.bind base @@ fun x -> Quote.quote_tp @@ Quote.Eval.elim_clo fam [x] Quote.Eval.eval in
     let base = Quote.quote_tp base in
     Sigma.Syn.sg base fam
   
   let quote_pair (`Sg (base, fam)) x y =
-    let y = Quote.quote ~tm:y ~tp:(Quote.Eval.elim_clo fam x Quote.Eval.eval) in
+    let y = Quote.quote ~tm:y ~tp:(Quote.Eval.elim_clo fam [x] Quote.Eval.eval) in
     let x = Quote.quote ~tm:x ~tp:base in 
     Sigma.Syn.pair x y
   

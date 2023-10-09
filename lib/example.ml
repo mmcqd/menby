@@ -16,6 +16,10 @@ struct
     | Signature of tele
     | Structure of (string * t) list
     | Proj of string * t
+    | Nat
+    | Zero
+    | Suc of t
+    | Elim of {mot : t; zero : t; suc : t; scrut : t}
   
   and tele = [
     | `Cell of t * string * tele
@@ -31,7 +35,10 @@ struct
     | Sg of t * Syn.t clo
     | Pair of t * t   
     | Signature of tele
-    | Structure of (string * t) list 
+    | Structure of (string * t) list
+    | Nat
+    | Zero
+    | Suc of t
     | Neu of neu
 
   and tele = [
@@ -51,6 +58,7 @@ struct
     | Fst
     | Snd
     | Proj of string
+    | Elim of {mot : Syn.t clo; zero : t; suc : Syn.t clo}
 
   and spine = elim Bwd.t
 
@@ -137,6 +145,30 @@ struct
         | _ -> failwith "bad signature case"
   end
 end
+and NatConn : Nat.Connective with module U.Syn = Syn and module U.Dom = Dom =
+struct
+  module U = U
+  module Syn =
+  struct
+    let nat = Syn.Nat
+    let zero = Syn.Zero
+    let suc x = Syn.Suc x
+    let elim ~mot ~scrut ~zero ~suc = Syn.Elim {mot; scrut; zero; suc}
+  end
+  module Dom = 
+  struct
+    let nat = Dom.Nat
+    let zero = Dom.Zero
+    let suc x = Dom.Suc x
+    let elim ~tp ~mot ~zero ~suc n = Dom.{n with sp = Snoc (n.sp, Elim {mot; zero; suc}); tp}
+    let case x f =
+      match x with
+        | Dom.Zero -> f `Zero
+        | Dom.Suc x -> f (`Suc x)
+        | Dom.Neu ({tp = Dom.Nat ; _} as n) -> f (`Neu (n,`Nat))
+        | _ -> failwith "bad nat case"
+  end
+end
 
 module rec Eval : NBE.Evaluator with module U := U =
 struct
@@ -145,6 +177,7 @@ struct
   module PiEval = Pi.Eval (PiConn) (Eval)
   module SigmaEval = Sigma.Eval (SigmaConn) (Eval)
   module RecordEval = Record.Eval (RecordConn) (Eval)
+  module NatEval = Nat.Eval (NatConn) (Eval)
 
   let rec eval : Syn.t -> Dom.t = function
     | Idx i -> Bwd.nth (Eff.read ()) i
@@ -159,10 +192,13 @@ struct
     | Signature tele -> RecordEval.eval_signature tele
     | Structure fields -> RecordEval.eval_struct fields
     | Proj (lbl, x) -> RecordEval.eval_proj lbl (eval x)
+    | Nat -> NatEval.eval_nat ()
+    | Zero -> NatEval.eval_zero ()
+    | Suc x -> NatEval.eval_suc x
+    | Elim {mot; scrut; zero; suc} -> NatEval.eval_elim mot (eval scrut) zero suc
 
-
-  let elim_clo clo arg f =
-    Eff.scope (fun env -> Bwd.Snoc (env,arg)) @@ fun () -> f clo.Dom.body
+  let elim_clo clo args f =
+    Eff.scope (fun env -> Bwd.append env args) @@ fun () -> f clo.Dom.body
 end
 
 module rec Quote : NBE.Quoter with module U := U and module Eval = Eval =
@@ -173,6 +209,7 @@ struct
   module PiQuote = Pi.Quote (PiConn) (Quote)
   module SigmaQuote = Sigma.Quote (SigmaConn) (Quote)
   module RecordQuote = Record.Quote (RecordConn) (Quote)
+  module NatQuote = Nat.Quote (NatConn) (Quote)
 
   let rec quote ~tp ~tm =
     match tp, tm with
@@ -183,6 +220,9 @@ struct
       | Dom.Sg (base, fam), Dom.Pair (x, y) -> SigmaQuote.quote_pair (`Sg (base, fam)) x y
       | Dom.Univ, Dom.Signature tele -> RecordQuote.quote_signature tele
       | Dom.Signature tele, Dom.Structure fields -> RecordQuote.quote_struct (`Signature tele) fields
+      | Dom.Univ, Dom.Nat -> NatQuote.quote_nat ()
+      | Dom.Nat, Dom.Zero -> NatQuote.quote_zero ()
+      | Dom.Nat, Dom.Suc x -> NatQuote.quote_suc x
       | _, Dom.Neu n -> quote_neu n.hd n.sp
       | _ -> failwith "ill typed quote"
 
@@ -196,6 +236,7 @@ struct
     | Dom.Fst -> SigmaQuote.quote_fst hd
     | Dom.Snd -> SigmaQuote.quote_snd hd
     | Dom.Proj lbl -> RecordQuote.quote_proj lbl hd
+    | Dom.Elim {mot; zero; suc} -> NatQuote.quote_elim ~mot ~scrut:hd ~zero ~suc
 
   let quote_tp tp = quote ~tm:tp ~tp:Dom.Univ
 

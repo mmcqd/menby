@@ -47,7 +47,7 @@ struct
     | `Cell (tp, lbl', _) when lbl = lbl' -> Sig.Dom.proj ~tp lbl neu
     | `Cell (tp, lbl', tele_clo) -> 
       let tm = U.Dom.embed @@ Sig.Dom.proj ~tp lbl' neu in
-      let tele = Eval.elim_clo tele_clo tm eval_tele in
+      let tele = Eval.elim_clo tele_clo [tm] eval_tele in
       proj_neu neu lbl tele
 
 
@@ -66,7 +66,7 @@ struct
   let rec quote_tele : Sig.Dom.tele -> Sig.Syn.tele = function
     | `Empty -> `Empty
     | `Cell (tp, lbl, tele_clo) ->
-      let tele = Quote.bind tp @@ fun x -> quote_tele @@ Quote.Eval.elim_clo tele_clo x SigEval.eval_tele in
+      let tele = Quote.bind tp @@ fun x -> quote_tele @@ Quote.Eval.elim_clo tele_clo [x] SigEval.eval_tele in
       let tp = Quote.quote_tp tp in
       `Cell (tp, lbl, tele)
   
@@ -76,7 +76,7 @@ struct
     let rec go tele fields =
       match tele,fields with
         | `Cell (tp, lbl, tele), (_, tm) :: fields -> 
-          let tele = Quote.Eval.elim_clo tele tm SigEval.eval_tele in
+          let tele = Quote.Eval.elim_clo tele [tm] SigEval.eval_tele in
           let tm = Quote.quote ~tp ~tm in
           (lbl, tm) :: go tele fields
         | `Empty, [] -> [] 

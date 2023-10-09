@@ -22,7 +22,7 @@ sig
   module U : Universe
   module Eff : Algaeff.Reader.S with type env = U.Dom.env
   val eval : U.Syn.t -> U.Dom.t
-  val elim_clo : 'a U.Dom.clo -> U.Dom.t -> ('a -> 'b) -> 'b
+  val elim_clo : 'a U.Dom.clo -> U.Dom.t list -> ('a -> 'b) -> 'b
 end
 
 module type Quoter = 
@@ -34,15 +34,3 @@ sig
   val quote_tp : U.Dom.t -> U.Syn.t
   val bind : U.Dom.t -> (U.Dom.t -> 'a) -> 'a
 end
-
-(* module Eval :
-sig
-  module Eff : Algaeff.Reader.S with type env = Dom.env
-  val eval : Syn.t -> Dom.t
-  val elim_clo : 'a Dom.clo -> Dom.t -> ('a -> 'b) -> 'b
-end
-module Quote :
-sig
-  module Eff : Algaeff.Reader.S
-  val quote : tp:Dom.t -> tm:Dom.t -> Syn.t
-end *)

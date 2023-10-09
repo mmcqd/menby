@@ -28,9 +28,9 @@ struct
   let eval_lam e = Pi.Dom.lam (U.Dom.clo (Eval.Eff.read ()) e)
   let eval_app f arg =
     Pi.Dom.case f @@ function
-      | `Lam clo -> Eval.elim_clo clo arg Eval.eval
+      | `Lam clo -> Eval.elim_clo clo [arg] Eval.eval
       | `Neu (n, `Pi (base, fam)) -> 
-        let tp = Eval.elim_clo fam arg Eval.eval in
+        let tp = Eval.elim_clo fam [arg] Eval.eval in
         U.Dom.embed @@ Pi.Dom.app ~tp n (arg,base)
 end
 
@@ -39,14 +39,14 @@ struct
   module U = Pi.U
   
   let quote_pi base fam =
-    let fam = Quote.bind base @@ fun x -> Quote.quote_tp @@ Quote.Eval.elim_clo fam x Quote.Eval.eval in
+    let fam = Quote.bind base @@ fun x -> Quote.quote_tp @@ Quote.Eval.elim_clo fam [x] Quote.Eval.eval in
     let base = Quote.quote_tp base in
     Pi.Syn.pi base fam
   
   let quote_lam (`Pi (base, fam)) body =
     Quote.bind base @@ fun x ->
-    let tp = Quote.Eval.elim_clo fam x Quote.Eval.eval in
-    let body = Quote.Eval.elim_clo body x Quote.Eval.eval |> fun tm -> Quote.quote ~tp ~tm in
+    let tp = Quote.Eval.elim_clo fam [x] Quote.Eval.eval in
+    let body = Quote.Eval.elim_clo body [x] Quote.Eval.eval |> fun tm -> Quote.quote ~tp ~tm in
     Pi.Syn.lam body
 
   let quote_app (tm,tp) f = Pi.Syn.app f @@ Quote.quote ~tp ~tm
