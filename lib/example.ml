@@ -73,12 +73,12 @@ struct
 end
 
 
-module rec U : NBE.Universe with module Syn = Syn and module Dom = Dom =
+module U : NBE.Universe with module Syn = Syn and module Dom = Dom =
 struct
   module Syn = Syn
   module Dom = Dom
 end
-and PiConn : Pi.Connective with module U.Syn = Syn and module U.Dom = Dom =
+module PiConn : Pi.Connective with module U = U =
 struct
   module U = U
   module Syn = 
@@ -99,7 +99,7 @@ struct
         | _ -> failwith "bad pi case"
   end
 end
-and SigmaConn : Sigma.Connective with module U.Syn = Syn and module U.Dom = Dom =
+module SigmaConn : Sigma.Connective with module U = U =
 struct
   module U = U
   module Syn = 
@@ -122,7 +122,7 @@ struct
         | _ -> failwith "bad sg case"
   end
 end
-and RecordConn : Record.Connective with module U.Syn = Syn and module U.Dom = Dom =
+module RecordConn : Record.Connective with module U = U =
 struct
   module U = U
   module Syn =
@@ -145,7 +145,7 @@ struct
         | _ -> failwith "bad signature case"
   end
 end
-and NatConn : Nat.Connective with module U.Syn = Syn and module U.Dom = Dom =
+module NatConn : Nat.Connective with module U = U =
 struct
   module U = U
   module Syn =
