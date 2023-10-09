@@ -1,0 +1,4 @@
+(executable
+ (public_name modular_nbe)
+ (name main)
+ (libraries modular_nbe))

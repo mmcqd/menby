@@ -1,0 +1,4 @@
+(library
+ (name modular_nbe)
+ (libraries bwd algaeff)
+ )
