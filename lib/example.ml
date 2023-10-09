@@ -144,7 +144,7 @@ struct
 
   module PiEval = Pi.Eval (PiConn) (Eval)
   module SigmaEval = Sigma.Eval (SigmaConn) (Eval)
-  module SignatureEval = Record.Eval (RecordConn) (Eval)
+  module RecordEval = Record.Eval (RecordConn) (Eval)
 
   let rec eval : Syn.t -> Dom.t = function
     | Idx i -> Bwd.nth (Eff.read ()) i
@@ -156,9 +156,9 @@ struct
     | Pair (x, y) -> SigmaEval.eval_pair x y
     | Fst x -> SigmaEval.eval_fst (eval x)
     | Snd x -> SigmaEval.eval_snd (eval x)
-    | Signature tele -> SignatureEval.eval_signature tele
-    | Structure fields -> SignatureEval.eval_struct fields
-    | Proj (lbl, x) -> SignatureEval.eval_proj lbl (eval x)
+    | Signature tele -> RecordEval.eval_signature tele
+    | Structure fields -> RecordEval.eval_struct fields
+    | Proj (lbl, x) -> RecordEval.eval_proj lbl (eval x)
 
 
   let elim_clo clo arg f =
@@ -184,7 +184,7 @@ struct
       | Dom.Univ, Dom.Signature tele -> RecordQuote.quote_signature tele
       | Dom.Signature tele, Dom.Structure fields -> RecordQuote.quote_struct (`Signature tele) fields
       | _, Dom.Neu n -> quote_neu n.hd n.sp
-      | _ -> failwith ""
+      | _ -> failwith "ill typed quote"
 
   and quote_neu hd sp = BwdLabels.fold_left sp ~f:quote_elim ~init:(quote_hd hd)
 
