@@ -23,42 +23,51 @@ sig
   end
 end
 
-module Eval (Nat : Connective) (Eval : NBE.Evaluator with module U := Nat.U) =
+module Eval (U : NBE.Universe) (Nat : Connective with module U := U) (Eff : Algaeff.Reader.S with type env = U.Dom.env) =
 struct
-  module U = Nat.U
-  let eval_nat () = Nat.Dom.nat
-  let eval_zero () = Nat.Dom.zero
-  let eval_suc n = Nat.Dom.suc (Eval.eval n)
-  let eval_elim mot scrut zero suc =
-    let mot = U.Dom.clo (Eval.Eff.read ()) mot in
-    let suc = U.Dom.clo (Eval.Eff.read ()) suc in
-    let zero = Eval.eval zero in
-    let rec go n =
-      Nat.Dom.case n @@ function
-        | `Zero -> zero
-        | `Suc n -> Eval.elim_clo suc [n ; go n] Eval.eval
-        | `Neu (n, _) -> 
-          let tp = Eval.elim_clo mot [U.Dom.embed n] Eval.eval in
-          U.Dom.embed @@ Nat.Dom.elim ~tp ~mot ~zero ~suc n
-    in
-    go scrut
+
+  module E = NBE.Eval(U)
+
+  class virtual eval = object(self)
+    inherit E.eval
+    method nat = Nat.Dom.nat
+    method zero = Nat.Dom.zero
+    method suc n = Nat.Dom.suc (self#tm n)
+    method elim mot scrut zero suc =
+      let mot = U.Dom.clo (Eff.read ()) mot in
+      let suc = U.Dom.clo (Eff.read ()) suc in
+      let zero = self#tm zero in
+      let rec go n =
+        Nat.Dom.case n @@ function
+          | `Zero -> zero
+          | `Suc n -> self#elim_clo suc [n ; go n] self#tm
+          | `Neu (n, _) -> 
+            let tp = self#elim_clo mot [U.Dom.embed n] self#tm in
+            U.Dom.embed @@ Nat.Dom.elim ~tp ~mot ~zero ~suc n
+      in
+      go scrut
+  end
 end
 
-module Quote (Nat : Connective) (Quote : NBE.Quoter with module U := Nat.U) =
+module Quote (U : NBE.Universe) (Nat : Connective with module U := U) (Eff : Algaeff.Reader.S) =
 struct
-  module U = Nat.U
-  let quote_nat () = Nat.Syn.nat
-  let quote_zero () = Nat.Syn.zero
-  let quote_suc n = Nat.Syn.suc (Quote.quote ~tp:Nat.Dom.nat ~tm:n)
-  let quote_elim ~mot ~scrut ~zero ~suc =
-    let zero =
-      let mot_zero = Quote.Eval.elim_clo mot [Nat.Dom.zero] Quote.Eval.eval in
-      Quote.quote ~tp:mot_zero ~tm:zero
-    in
-    let suc = Quote.bind Nat.Dom.nat @@ fun x -> 
-      let mot_suc = Quote.Eval.elim_clo mot [Nat.Dom.suc x] Quote.Eval.eval in
-      Quote.quote ~tp:mot_suc ~tm:(Quote.Eval.elim_clo suc [x ; Nat.Dom.suc x] Quote.Eval.eval) 
-    in
-    let mot = Quote.bind Nat.Dom.nat @@ fun x -> Quote.quote_tp @@ Quote.Eval.elim_clo mot [x] Quote.Eval.eval in
-    Nat.Syn.elim ~mot ~scrut ~zero ~suc
+
+  module Q = NBE.Quote(U)
+  class virtual quote eval = object(self)
+    inherit Q.quote(eval)
+    method nat = Nat.Syn.nat
+    method zero (_ : [`Nat]) = Nat.Syn.zero
+    method suc n (_ : [`Nat]) = Nat.Syn.suc (self#tm ~tm:n ~tp:Nat.Dom.nat)
+    method elim ~mot ~scrut ~zero ~suc =
+      let zero =
+        let mot_zero = eval#elim_clo mot [Nat.Dom.zero] eval#tm in
+        self#tm ~tp:mot_zero ~tm:zero
+      in
+      let suc = self#bind Nat.Dom.nat @@ fun x -> 
+        let mot_suc = eval#elim_clo mot [Nat.Dom.suc x] eval#tm in
+        self#tm ~tp:mot_suc ~tm:(eval#elim_clo suc [x ; Nat.Dom.suc x] eval#tm) 
+      in
+      let mot = self#bind Nat.Dom.nat @@ fun x -> self#tp @@ eval#elim_clo mot [x] eval#tm in
+      Nat.Syn.elim ~mot ~scrut ~zero ~suc
+  end
 end

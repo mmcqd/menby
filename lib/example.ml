@@ -170,78 +170,88 @@ struct
   end
 end
 
-module rec Eval : NBE.Evaluator with module U := U =
+module Eval =
 struct
   module Eff = Algaeff.Reader.Make (struct type nonrec env = Dom.env end)
 
-  module PiEval = Pi.Eval (PiConn) (Eval)
-  module SigmaEval = Sigma.Eval (SigmaConn) (Eval)
-  module RecordEval = Record.Eval (RecordConn) (Eval)
-  module NatEval = Nat.Eval (NatConn) (Eval)
-
-  let rec eval : Syn.t -> Dom.t = function
-    | Idx i -> Bwd.nth (Eff.read ()) i
-    | Univ -> Univ
-    | Pi (base, fam) -> PiEval.eval_pi base fam
-    | Lam body -> PiEval.eval_lam body
-    | App (f, arg) -> PiEval.eval_app (eval f) (eval arg)
-    | Sg (base, fam) -> SigmaEval.eval_sg base fam
-    | Pair (x, y) -> SigmaEval.eval_pair x y
-    | Fst x -> SigmaEval.eval_fst (eval x)
-    | Snd x -> SigmaEval.eval_snd (eval x)
-    | Signature tele -> RecordEval.eval_signature tele
-    | Structure fields -> RecordEval.eval_struct fields
-    | Proj (lbl, x) -> RecordEval.eval_proj lbl (eval x)
-    | Nat -> NatEval.eval_nat ()
-    | Zero -> NatEval.eval_zero ()
-    | Suc x -> NatEval.eval_suc x
-    | Elim {mot; scrut; zero; suc} -> NatEval.eval_elim mot (eval scrut) zero suc
-
-  let elim_clo clo args f =
-    Eff.scope (fun env -> Bwd.append env args) @@ fun () -> f clo.Dom.body
+  module PiEval = Pi.Eval (U) (PiConn) (Eff)
+  module RecordEval = Record.Eval (U) (RecordConn) (Eff)
+  module SigmaEval = Sigma.Eval (U) (SigmaConn) (Eff)
+  module NatEval = Nat.Eval (U) (NatConn) (Eff)
+  class eval = object(self)
+    inherit PiEval.eval
+    inherit RecordEval.eval
+    inherit SigmaEval.eval
+    inherit NatEval.eval
+    method tm : Syn.t -> Dom.t = function
+      | Idx i -> Bwd.nth (Eff.read ()) i
+      | Univ -> Univ
+      | Pi (base, fam) -> self#pi base fam
+      | Lam body -> self#lam body
+      | App (f, arg) -> self#app (self#tm f) (self#tm arg)
+      | Sg (base, fam) -> self#sg base fam
+      | Pair (x, y) -> self#pair x y
+      | Fst x -> self#fst (self#tm x)
+      | Snd x -> self#snd (self#tm x)
+      | Signature tele -> self#signature tele
+      | Structure fields -> self#structure fields
+      | Proj (lbl, x) -> self#proj lbl (self#tm x)
+      | Nat -> self#nat
+      | Zero -> self#zero
+      | Suc x -> self#suc x
+      | Elim {mot; scrut; zero; suc} -> self#elim mot (self#tm scrut) zero suc
+    method elim_clo = 
+      fun clo args f -> Eff.scope (fun env -> Bwd.append env args) @@ fun () -> f clo.Dom.body
+  end
 end
 
-module rec Quote : NBE.Quoter with module U := U and module Eval = Eval =
+module Quote =
 struct
-  module Eval = Eval
-  module Eff = Algaeff.Reader.Make (struct type env = int end)
-  
-  module PiQuote = Pi.Quote (PiConn) (Quote)
-  module SigmaQuote = Sigma.Quote (SigmaConn) (Quote)
-  module RecordQuote = Record.Quote (RecordConn) (Quote)
-  module NatQuote = Nat.Quote (NatConn) (Quote)
+  module Eff = Algaeff.Reader.Make (struct type nonrec env = int end)
 
-  let rec quote ~tp ~tm =
-    match tp, tm with
-      | Dom.Univ, Dom.Univ -> Syn.Univ
-      | Dom.Univ, Dom.Pi (base, fam) -> PiQuote.quote_pi base fam
-      | Dom.Pi (base, fam), Dom.Lam body -> PiQuote.quote_lam (`Pi (base, fam)) body
-      | Dom.Univ, Dom.Sg (base, fam) -> SigmaQuote.quote_sg base fam
-      | Dom.Sg (base, fam), Dom.Pair (x, y) -> SigmaQuote.quote_pair (`Sg (base, fam)) x y
-      | Dom.Univ, Dom.Signature tele -> RecordQuote.quote_signature tele
-      | Dom.Signature tele, Dom.Structure fields -> RecordQuote.quote_struct (`Signature tele) fields
-      | Dom.Univ, Dom.Nat -> NatQuote.quote_nat ()
-      | Dom.Nat, Dom.Zero -> NatQuote.quote_zero ()
-      | Dom.Nat, Dom.Suc x -> NatQuote.quote_suc x
-      | _, Dom.Neu n -> quote_neu n.hd n.sp
-      | _ -> failwith "ill typed quote"
+  module QuotePi = Pi.Quote (U) (PiConn) (Eff)
+  module QuoteSigma = Sigma.Quote (U) (SigmaConn) (Eff)
+  module QuoteRecord = Record.Quote (U) (RecordConn) (Eff)
+  module QuoteNat = Nat.Quote (U) (NatConn) (Eff)
 
-  and quote_neu hd sp = BwdLabels.fold_left sp ~f:quote_elim ~init:(quote_hd hd)
+  class quote (eval : Eval.eval) = object(self)
+    inherit QuotePi.quote(eval)
+    inherit QuoteSigma.quote(eval)
+    inherit QuoteRecord.quote(eval)
+    inherit QuoteNat.quote(eval)
 
-  and quote_hd = function
-    | Dom.Lvl l -> Syn.Idx (Eff.read() - l - 1)
+    method tm ~tp ~tm = 
+      match tp, tm with
+        | Univ, Univ -> Syn.Univ
+        | Univ, Pi (base, fam) -> self#pi base fam
+        | Pi (base, fam), Lam body -> self#lam (`Pi (base, fam)) body
+        | Univ, Sg (base, fam) -> self#sg base fam
+        | Sg (base, fam), Pair (x, y) -> self#pair (`Sg (base, fam)) x y
+        | Univ, Signature tele -> self#signature tele
+        | Signature tele, Structure fields -> self#structure (`Signature tele) fields
+        | Univ, Nat -> self#nat
+        | Nat, Zero -> self#zero `Nat
+        | Nat, Suc x -> self#suc x `Nat
+        | _, Neu n -> self#neu n.hd n.sp
+        | _ -> failwith "ill typed quote"
 
-  and quote_elim hd = function
-    | Dom.App {tm; tp} -> PiQuote.quote_app (tm,tp) hd
-    | Dom.Fst -> SigmaQuote.quote_fst hd
-    | Dom.Snd -> SigmaQuote.quote_snd hd
-    | Dom.Proj lbl -> RecordQuote.quote_proj lbl hd
-    | Dom.Elim {mot; zero; suc} -> NatQuote.quote_elim ~mot ~scrut:hd ~zero ~suc
+      method neu hd sp =
+        BwdLabels.fold_left sp ~f:self#eliminator ~init:(self#hd hd)
+      
+      method hd = function
+        | Dom.Lvl l -> Syn.Idx (Eff.read () - l - 1)
+      
+      method eliminator hd = function
+        | Dom.App {tm; tp} -> self#app (tm,tp) hd
+        | Dom.Fst -> self#fst hd
+        | Dom.Snd -> self#snd hd
+        | Dom.Proj lbl -> self#proj lbl hd
+        | Dom.Elim {mot; zero; suc} -> self#elim ~mot ~zero ~suc ~scrut:hd
 
-  let quote_tp tp = quote ~tm:tp ~tp:Dom.Univ
-
-  let bind tp f =
-    let arg = Dom.lvl tp (Eff.read ()) in
-    Eff.scope (fun l -> l + 1) @@ fun () ->
-    f arg
+    method tp tp = self#tm ~tp ~tm:Univ
+    method bind tp f =
+      let arg = Dom.lvl tp (Eff.read ()) in
+      Eff.scope (fun l -> l + 1) @@ fun () ->
+      f arg
+  end
 end

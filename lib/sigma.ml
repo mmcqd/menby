@@ -22,7 +22,48 @@ sig
   end
 end
 
-module Eval (Sigma : Connective) (Eval : NBE.Evaluator with module U := Sigma.U)=
+module Eval (U : NBE.Universe) (Sigma : Connective with module U := U) (Eff : Algaeff.Reader.S with type env = U.Dom.env) =
+struct
+  module E = NBE.Eval(U)
+  
+  class virtual eval = object(self)
+    inherit E.eval
+    method sg base fam = Sigma.Dom.sg (self#tm base) (U.Dom.clo (Eff.read ()) fam)
+    method pair x y = Sigma.Dom.pair (self#tm x) (self#tm y)
+    method fst p = Sigma.Dom.case p @@ function
+      | `Pair (x,_) -> x
+      | `Neu (n, `Sg (base,_)) -> U.Dom.embed @@ Sigma.Dom.fst ~tp:base n
+    method snd p = Sigma.Dom.case p @@ function
+      | `Pair (_,y) -> y
+      | `Neu (n, `Sg (_,fam)) -> 
+        let x = self#fst (U.Dom.embed n) in
+        let tp = self#elim_clo fam [x] self#tm in
+        U.Dom.embed @@ Sigma.Dom.snd ~tp n
+  end
+end
+
+module Quote (U : NBE.Universe) (Sigma : Connective with module U := U) (Eff : Algaeff.Reader.S) =
+struct
+
+  module Q = NBE.Quote(U)
+
+  class virtual quote eval = object(self)
+    inherit Q.quote(eval)
+    method sg base fam =
+      let fam = self#bind base @@ fun x -> self#tp @@ eval#elim_clo fam [x] eval#tm in
+      let base = self#tp base in
+      Sigma.Syn.sg base fam
+    method pair (`Sg (base, fam) : [`Sg of _]) x y =
+      let y = self#tm ~tm:y ~tp:(eval#elim_clo fam [x] eval#tm) in
+      let x = self#tm ~tm:x ~tp:base in 
+      Sigma.Syn.pair x y
+    method fst = Sigma.Syn.fst
+    method snd = Sigma.Syn.snd
+  end
+end
+
+
+(* module Eval (Sigma : Connective) (Eval : NBE.Evaluator with module U := Sigma.U)=
 struct
   module U = Sigma.U
   let eval_sg base fam = Sigma.Dom.sg (Eval.eval base) (U.Dom.clo (Eval.Eff.read ()) fam)
@@ -57,4 +98,4 @@ struct
   let quote_fst = Sigma.Syn.fst
   let quote_snd = Sigma.Syn.snd
 
-end
+end *)
