@@ -22,13 +22,13 @@ sig
   end
 end
 
-module Eval (U : NBE.Universe) (Sigma : Connective with module U := U) (Eff : Algaeff.Reader.S with type env = U.Dom.env) =
+module Eval (U : NBE.Universe) (Sigma : Connective with module U := U) =
 struct
   module E = NBE.Eval(U)
   
   class virtual eval = object(self)
     inherit E.eval
-    method sg base fam = Sigma.Dom.sg (self#tm base) (U.Dom.clo (Eff.read ()) fam)
+    method sg base fam = Sigma.Dom.sg (self#tm base) (U.Dom.clo (self#env ()) fam)
     method pair x y = Sigma.Dom.pair (self#tm x) (self#tm y)
     method fst p = Sigma.Dom.case p @@ function
       | `Pair (x,_) -> x
@@ -42,7 +42,7 @@ struct
   end
 end
 
-module Quote (U : NBE.Universe) (Sigma : Connective with module U := U) (Eff : Algaeff.Reader.S) =
+module Quote (U : NBE.Universe) (Sigma : Connective with module U := U) =
 struct
 
   module Q = NBE.Quote(U)

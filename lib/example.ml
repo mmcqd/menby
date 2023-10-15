@@ -174,10 +174,10 @@ module Eval =
 struct
   module Eff = Algaeff.Reader.Make (struct type nonrec env = Dom.env end)
 
-  module PiEval = Pi.Eval (U) (PiConn) (Eff)
-  module RecordEval = Record.Eval (U) (RecordConn) (Eff)
-  module SigmaEval = Sigma.Eval (U) (SigmaConn) (Eff)
-  module NatEval = Nat.Eval (U) (NatConn) (Eff)
+  module PiEval = Pi.Eval (U) (PiConn)
+  module RecordEval = Record.Eval (U) (RecordConn)
+  module SigmaEval = Sigma.Eval (U) (SigmaConn)
+  module NatEval = Nat.Eval (U) (NatConn)
   class eval = object(self)
     inherit PiEval.eval
     inherit RecordEval.eval
@@ -202,6 +202,7 @@ struct
       | Elim {mot; scrut; zero; suc} -> self#elim mot (self#tm scrut) zero suc
     method elim_clo = 
       fun clo args f -> Eff.scope (fun env -> Bwd.append env args) @@ fun () -> f clo.Dom.body
+    method env () = Eff.read ()
   end
 end
 
@@ -209,10 +210,10 @@ module Quote =
 struct
   module Eff = Algaeff.Reader.Make (struct type nonrec env = int end)
 
-  module QuotePi = Pi.Quote (U) (PiConn) (Eff)
-  module QuoteSigma = Sigma.Quote (U) (SigmaConn) (Eff)
-  module QuoteRecord = Record.Quote (U) (RecordConn) (Eff)
-  module QuoteNat = Nat.Quote (U) (NatConn) (Eff)
+  module QuotePi = Pi.Quote (U) (PiConn)
+  module QuoteSigma = Sigma.Quote (U) (SigmaConn)
+  module QuoteRecord = Record.Quote (U) (RecordConn)
+  module QuoteNat = Nat.Quote (U) (NatConn)
 
   class quote (eval : Eval.eval) = object(self)
     inherit QuotePi.quote(eval)

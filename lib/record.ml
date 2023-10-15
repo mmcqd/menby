@@ -30,7 +30,7 @@ sig
 end
 
 
-module Eval (U : NBE.Universe) (Sig : Connective with module U := U) (Eff : Algaeff.Reader.S with type env = U.Dom.env) =
+module Eval (U : NBE.Universe) (Sig : Connective with module U := U) =
 struct
   module E = NBE.Eval(U)
   
@@ -38,7 +38,7 @@ struct
     inherit E.eval
     method tele : Sig.Syn.tele -> Sig.Dom.tele = function
       | `Empty -> `Empty
-      | `Cell (tp, lbl, tele) -> `Cell (self#tm tp, lbl, U.Dom.clo (Eff.read ()) tele)
+      | `Cell (tp, lbl, tele) -> `Cell (self#tm tp, lbl, U.Dom.clo (self#env ()) tele)
     method signature tele = Sig.Dom.signature (self#tele tele)
     method structure fields = Sig.Dom.structure @@ List.map (fun (lbl, tm) -> lbl, self#tm tm) fields
     method proj_neu neu lbl = 
@@ -59,7 +59,7 @@ struct
 end
 
 
-module Quote (U : NBE.Universe) (Sig : Connective with module U := U) (Eff : Algaeff.Reader.S) =
+module Quote (U : NBE.Universe) (Sig : Connective with module U := U) =
 struct
   module Q = NBE.Quote(U)
   class virtual quote eval = object(self)

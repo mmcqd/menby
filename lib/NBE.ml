@@ -29,6 +29,7 @@ struct
   class virtual eval = object
     method virtual tm : U.Syn.t -> U.Dom.t
     method virtual elim_clo : 'a 'b. 'a U.Dom.clo -> U.Dom.t list -> ('a -> 'b) -> 'b
+    method virtual env : unit -> U.Dom.env
   end
 end
 

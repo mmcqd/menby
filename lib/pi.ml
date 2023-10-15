@@ -22,15 +22,15 @@ sig
 end
 
 
-module Eval (U : NBE.Universe) (Pi : Connective with module U := U) (Eff : Algaeff.Reader.S with type env = U.Dom.env) =
+module Eval (U : NBE.Universe) (Pi : Connective with module U := U) =
 struct
 
   module E = NBE.Eval(U)
 
   class virtual eval = object(self)
     inherit E.eval
-    method pi base fam = Pi.Dom.pi (self#tm base) (U.Dom.clo (Eff.read ()) fam)
-    method lam e = Pi.Dom.lam (U.Dom.clo (Eff.read ()) e)
+    method pi base fam = Pi.Dom.pi (self#tm base) (U.Dom.clo (self#env ()) fam)
+    method lam e = Pi.Dom.lam (U.Dom.clo (self#env ()) e)
     method app f arg = 
       Pi.Dom.case f @@ function
         | `Lam clo -> self#elim_clo clo [arg] self#tm
@@ -40,7 +40,7 @@ struct
   end
 end
 
-module Quote (U : NBE.Universe) (Pi : Connective with module U := U) (Eff : Algaeff.Reader.S) =
+module Quote (U : NBE.Universe) (Pi : Connective with module U := U) =
 struct
   module E = NBE.Eval(U)
   module Q = NBE.Quote(U)

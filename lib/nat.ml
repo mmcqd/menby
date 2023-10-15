@@ -23,7 +23,7 @@ sig
   end
 end
 
-module Eval (U : NBE.Universe) (Nat : Connective with module U := U) (Eff : Algaeff.Reader.S with type env = U.Dom.env) =
+module Eval (U : NBE.Universe) (Nat : Connective with module U := U) =
 struct
 
   module E = NBE.Eval(U)
@@ -34,8 +34,8 @@ struct
     method zero = Nat.Dom.zero
     method suc n = Nat.Dom.suc (self#tm n)
     method elim mot scrut zero suc =
-      let mot = U.Dom.clo (Eff.read ()) mot in
-      let suc = U.Dom.clo (Eff.read ()) suc in
+      let mot = U.Dom.clo (self#env ()) mot in
+      let suc = U.Dom.clo (self#env ()) suc in
       let zero = self#tm zero in
       let rec go n =
         Nat.Dom.case n @@ function
@@ -49,7 +49,7 @@ struct
   end
 end
 
-module Quote (U : NBE.Universe) (Nat : Connective with module U := U) (Eff : Algaeff.Reader.S) =
+module Quote (U : NBE.Universe) (Nat : Connective with module U := U) =
 struct
 
   module Q = NBE.Quote(U)
